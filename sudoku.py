@@ -17,10 +17,14 @@ WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 GRAY = (200, 200, 200)
 BLUE = (0, 0, 255)
+RED = (255, 0, 0)
+GREEN = (0, 255, 0)
 
 # Fonts
 FONT = pygame.font.Font(None, 36)
 HEADLINE_FONT = pygame.font.Font(None, 48)
+MESSAGE_FONT = pygame.font.Font(None, 36)
+
 
 # Sample Sudoku board
 sudoku_board = [
@@ -111,6 +115,12 @@ def is_button_clicked(rect, pos):
     return rect.collidepoint(pos)
 
 
+def draw_message(screen, message, color):
+    """Draw a message on the screen."""
+    message_text = MESSAGE_FONT.render(message, True, color)
+    screen.blit(message_text, (WINDOW_WIDTH // 2 - message_text.get_width() // 2, WINDOW_HEIGHT - 100))
+
+
 def is_valid_board(board):
 
     def is_valid_block(block):
@@ -148,7 +158,8 @@ def main():
     clock = pygame.time.Clock()
     selected_cell = None
     running = True
-
+    message = ""
+    message_color = BLACK
     submit_button = pygame.Rect(WINDOW_WIDTH // 2 - 50, WINDOW_HEIGHT - 50, 100, 40)
 
     while running:
@@ -158,6 +169,8 @@ def main():
         draw_grid(screen)
         draw_numbers(screen, sudoku_board)
         draw_button(screen, submit_button, "Submit")
+        draw_message(screen, message, message_color)
+
 
         if selected_cell:
             pygame.draw.rect(
@@ -179,9 +192,11 @@ def main():
                 mouse_pos = pygame.mouse.get_pos()
                 if is_button_clicked(submit_button, mouse_pos):
                     if is_valid_board(sudoku_board):
-                        print("Congratulations! The board is correctly filled.")
+                        message = "Congratulations! The board is correctly filled."
+                        message_color = GREEN
                     else:
-                        print("There are errors in the board.")
+                        message = "There are errors in the board."
+                        message_color = RED
                 else:
                     cell_pos = get_cell_pos(pygame.mouse.get_pos())
                     if cell_pos and not initial_cells[cell_pos[1]][cell_pos[0]]:
