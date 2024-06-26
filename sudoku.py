@@ -24,6 +24,7 @@ GREEN = (0, 255, 0)
 FONT = pygame.font.Font(None, 36)
 HEADLINE_FONT = pygame.font.Font(None, 48)
 MESSAGE_FONT = pygame.font.Font(None, 36)
+SUGGESTION_FONT = pygame.font.Font(None, 24)
 
 
 # Sample Sudoku board
@@ -40,6 +41,8 @@ sudoku_board = [
 ]
 
 initial_cells = [[bool(cell) for cell in row] for row in sudoku_board]
+
+suggestions = [[[] for _ in range(9)] for _ in range(9)]
 
 
 def draw_grid(screen):
@@ -95,6 +98,25 @@ def get_cell_pos(mouse_pos):
     return None
 
 
+def draw_suggestions(screen):
+    """Draw suggestions in the cells."""
+    for i in range(9):
+        for j in range(9):
+            if suggestions[i][j]:
+                for num in suggestions[i][j]:
+                    row = (num - 1) // 3
+                    col = (num - 1) % 3
+
+                    suggestion_text = SUGGESTION_FONT.render(str(num), True, GRAY)
+                    screen.blit(
+                        suggestion_text,
+                        (
+                            j * CELL_SIZE + col * 15 + 8 + MARGIN,
+                            i * CELL_SIZE + row * 15 + 60,
+                        ),
+                    )
+
+
 def draw_button(screen, rect, text):
     """Draw a button with text."""
     pygame.draw.rect(screen, GRAY, rect)
@@ -102,6 +124,16 @@ def draw_button(screen, rect, text):
     button_text = FONT.render(text, True, BLACK)
     text_rect = button_text.get_rect(center=rect.center)
     screen.blit(button_text, text_rect)
+
+
+def draw_suggestion_mode(screen, suggestion_mode):
+    """Draw the suggestion mode indicator."""
+    mode_text = "Suggestions: ON" if suggestion_mode else "Suggestions: OFF"
+    mode_color = GREEN if suggestion_mode else RED
+    suggestion_mode_text = SUGGESTION_FONT.render(mode_text, True, mode_color)
+    screen.blit(
+        suggestion_mode_text, (WINDOW_WIDTH - suggestion_mode_text.get_width() - 10, 5)
+    )
 
 
 def draw_headline(screen):
@@ -118,7 +150,10 @@ def is_button_clicked(rect, pos):
 def draw_message(screen, message, color):
     """Draw a message on the screen."""
     message_text = MESSAGE_FONT.render(message, True, color)
-    screen.blit(message_text, (WINDOW_WIDTH // 2 - message_text.get_width() // 2, WINDOW_HEIGHT - 100))
+    screen.blit(
+        message_text,
+        (WINDOW_WIDTH // 2 - message_text.get_width() // 2, WINDOW_HEIGHT - 100),
+    )
 
 
 def is_valid_board(board):
@@ -142,17 +177,19 @@ def is_valid_board(board):
     # check 3x3 sub-grides
     for block_row in range(3):
         for block_col in range(3):
-            block = [board[r][c] for r in range(block_row * 3, (block_row + 1) * 3)
-                     for c in range(block_col * 3, (block_col + 1) * 3)]
+            block = [
+                board[r][c]
+                for r in range(block_row * 3, (block_row + 1) * 3)
+                for c in range(block_col * 3, (block_col + 1) * 3)
+            ]
             if not is_valid_block(block):
                 return False
-                
 
     return True
 
 
 def main():
-
+    pygame.init()
     screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
     pygame.display.set_caption("Sudoku")
     clock = pygame.time.Clock()
@@ -160,17 +197,20 @@ def main():
     running = True
     message = ""
     message_color = BLACK
+    suggestion_mode = False
+
+    # Button rect
     submit_button = pygame.Rect(WINDOW_WIDTH // 2 - 50, WINDOW_HEIGHT - 50, 100, 40)
 
     while running:
-        pygame.display.flip()
         screen.fill(WHITE)
         draw_headline(screen)
         draw_grid(screen)
         draw_numbers(screen, sudoku_board)
+        draw_suggestions(screen)
         draw_button(screen, submit_button, "Submit")
         draw_message(screen, message, message_color)
-
+        draw_suggestion_mode(screen, suggestion_mode)
 
         if selected_cell:
             pygame.draw.rect(
@@ -185,6 +225,8 @@ def main():
                 3,
             )
 
+        pygame.display.flip()
+
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
@@ -198,23 +240,34 @@ def main():
                         message = "There are errors in the board."
                         message_color = RED
                 else:
-                    cell_pos = get_cell_pos(pygame.mouse.get_pos())
+                    cell_pos = get_cell_pos(mouse_pos)
                     if cell_pos and not initial_cells[cell_pos[1]][cell_pos[0]]:
                         selected_cell = cell_pos
                     else:
                         selected_cell = None
-
             elif event.type == pygame.KEYDOWN:
-                if (
-                    selected_cell
-                    and event.unicode.isdigit()
-                    and int(event.unicode) in range(1, 10)
-                ):
+                if event.key == pygame.K_LSHIFT or event.key == pygame.K_RSHIFT:
+                    suggestion_mode = not suggestion_mode
+                elif selected_cell:
                     x, y = selected_cell
-                    if not initial_cells[y][
-                        x
-                    ]:  # Check if the cell is not an initial cell
-                        sudoku_board[y][x] = int(event.unicode)
+                    if event.key == pygame.K_BACKSPACE or event.unicode == "0":
+                        sudoku_board[y][x] = 0
+                        suggestions[y][x] = []
+                    elif event.unicode.isdigit() and int(event.unicode) in range(1, 10):
+                        num = int(event.unicode)
+                        if suggestion_mode:
+                            if num in suggestions[y][x]:
+                                suggestions[y][x].remove(num)
+                            else:
+                                suggestions[y][x].append(num)
+                        else:
+                            if not initial_cells[y][
+                                x
+                            ]:  # Check if the cell is not an initial cell
+                                sudoku_board[y][x] = num
+                                suggestions[y][
+                                    x
+                                ] = []  # Clear suggestions when a number is set
 
         clock.tick(60)  # limits FPS to 60
 
